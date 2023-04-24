@@ -9,14 +9,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/zishang520/engine.io-client/config"
-	_http "github.com/zishang520/engine.io-client/http"
-	"github.com/zishang520/engine.io-client/utils"
+	"github.com/zishang520/engine.io-client-go/client"
+	"github.com/zishang520/engine.io-client-go/config"
 	"github.com/zishang520/engine.io/events"
 	"github.com/zishang520/engine.io/log"
 	"github.com/zishang520/engine.io/packet"
 	"github.com/zishang520/engine.io/parser"
 	"github.com/zishang520/engine.io/types"
+	"github.com/zishang520/engine.io/utils"
 )
 
 var client_polling_log = log.NewLog("engine.io-client:polling")
@@ -210,18 +210,18 @@ func (p *Polling) uri() string {
 }
 
 // Creates a request.
-func (p *Polling) request(opts *_http.Options) (*_http.Response, error) {
+func (p *Polling) request(opts *client.Options) (*client.Response, error) {
 	if opts == nil {
-		opts = &_http.Options{}
+		opts = &client.Options{}
 	}
 	opts.Timeout = p.opts.RequestTimeout()
 	opts.TLSClientConfig = p.opts.TLSClientConfig()
-	return _http.NewRequest(p.uri(), opts)
+	return client.NewRequest(p.uri(), opts)
 }
 
 // Sends data.
 func (p *Polling) doWrite(data types.BufferInterface, fn func()) {
-	res, err := p.request(&_http.Options{
+	res, err := p.request(&client.Options{
 		Method: http.MethodPost,
 		Body:   data,
 	})

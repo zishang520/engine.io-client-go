@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zishang520/engine.io-client/config"
+	"github.com/zishang520/engine.io-client-go/config"
 	"github.com/zishang520/engine.io/events"
 	"github.com/zishang520/engine.io/log"
 	"github.com/zishang520/engine.io/packet"

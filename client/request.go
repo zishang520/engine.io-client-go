@@ -1,4 +1,4 @@
-package http
+package client
 
 import (
 	"compress/flate"
@@ -45,18 +45,18 @@ func NewRequest(uri string, opts *Options) (*Response, error) {
 }
 
 func (r *Request) create() (res *Response, _ error) {
-	client := &http.Client{}
+	_client := &http.Client{}
 	if r.options.Jar != nil {
-		client.Jar = r.options.Jar
+		_client.Jar = r.options.Jar
 	}
 	if r.options.TLSClientConfig != nil {
-		client.Transport = &http.Transport{
+		_client.Transport = &http.Transport{
 			Proxy:           http.ProxyFromEnvironment,
 			TLSClientConfig: r.options.TLSClientConfig,
 		}
 	}
 	if r.options.Timeout > 0 {
-		client.Timeout = r.options.Timeout
+		_client.Timeout = r.options.Timeout
 	}
 	request, err := http.NewRequest(strings.ToUpper(r.options.Method), r.uri, r.options.Body)
 	if err != nil {
@@ -75,7 +75,7 @@ func (r *Request) create() (res *Response, _ error) {
 		request.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	}
 
-	response, err := client.Do(request)
+	response, err := _client.Do(request)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,8 @@ setlocal ENABLEDELAYEDEXPANSION
 set GOPATH="%~dp0vendor"
 rem Set the GOPROXY environment variable
 Set GOPROXY=https://goproxy.io,direct
+rem set http_proxy=socks5://127.0.0.1:1080
+rem set https_proxy=%http_proxy%
 
 if /i "%args%"=="default" goto %args%
 if /i "%args%"=="deps" goto %args%

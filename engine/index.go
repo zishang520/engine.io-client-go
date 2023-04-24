@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"github.com/zishang520/engine.io-client/config"
+	"github.com/zishang520/engine.io-client-go/config"
 )
 
 type transports struct {

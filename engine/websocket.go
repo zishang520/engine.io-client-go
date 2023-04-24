@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/zishang520/engine.io-client/config"
-	"github.com/zishang520/engine.io-client/utils"
+	"github.com/zishang520/engine.io-client-go/config"
 	"github.com/zishang520/engine.io/log"
 	"github.com/zishang520/engine.io/packet"
 	"github.com/zishang520/engine.io/parser"
 	"github.com/zishang520/engine.io/types"
+	"github.com/zishang520/engine.io/utils"
 )
 
 var client_websocket_log = log.NewLog("engine.io-client:websocket")
