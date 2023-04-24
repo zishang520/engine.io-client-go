@@ -66,12 +66,12 @@ func (p *Polling) _doOpen() {
 	p.Poll()
 }
 
-func (p *Polling) hasPause() bool {
+func (p *Polling) HasPause() bool {
 	return true
 }
 
 // Pauses polling.
-func (p *Polling) pause(onPause func()) {
+func (p *Polling) Pause(onPause func()) {
 	p.setReadyState("pausing")
 	end := func() {
 		client_polling_log.Debug("paused")

@@ -300,7 +300,7 @@ func (s *Socket) probe(name string) {
 				}
 				PriorWebsocketSuccess.Set("websocket" == transport.Name())
 				client_socket_log.Debug(`pausing current transport "%s"`, s.Transport().Name())
-				s.Transport().pause(func() {
+				s.Transport().Pause(func() {
 					if atomic.LoadInt32(&failed) == 1 {
 						return
 					}
@@ -383,7 +383,7 @@ func (s *Socket) onOpen() {
 	s.flush()
 	// we check for `readyState` in case an `open`
 	// listener already closed the socket
-	if "open" == s.readyState() && s.opts.Upgrade() && s.Transport().hasPause() {
+	if "open" == s.readyState() && s.opts.Upgrade() && s.Transport().HasPause() {
 		client_socket_log.Debug("starting upgrade probes")
 		for _, upgrade := range s.upgrades.Keys() {
 			s.probe(upgrade)
