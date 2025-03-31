@@ -125,8 +125,9 @@ func (p *polling) Pause(onPause func()) {
 func (p *polling) _poll() {
 	client_polling_log.Debug("polling")
 	p._polling.Store(true)
-	go p.doPoll()
 	p.Emit("poll")
+
+	go p.doPoll()
 }
 
 // _onPacket handles incoming packets from the polling transport.
@@ -202,8 +203,11 @@ func (p *polling) DoClose() {
 func (p *polling) Write(packets []*packet.Packet) {
 	p.SetWritable(false)
 
+	go p.write(packets)
+}
+func (p *polling) write(packets []*packet.Packet) {
 	data, _ := parser.Parserv4().EncodePayload(packets)
-	go p.doWrite(data, func() {
+	p.doWrite(data, func() {
 		p.SetWritable(true)
 		p.Emit("drain")
 	})

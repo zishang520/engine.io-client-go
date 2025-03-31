@@ -97,9 +97,9 @@ func (w *websocket) DoOpen() {
 	w.addEventListeners()
 }
 
-// _init handles the WebSocket message reading loop.
+// message handles the WebSocket message reading loop.
 // This method processes incoming WebSocket messages and handles different message types.
-func (w *websocket) _init() {
+func (w *websocket) message() {
 	for {
 		mt, message, err := w.socket.NextReader()
 		if err != nil {
@@ -159,7 +159,7 @@ func (w *websocket) addEventListeners() {
 		w.OnClose(NewTransportError("websocket connection closed", nil, nil).Err())
 	})
 
-	go w._init()
+	go w.message()
 
 	w.OnOpen()
 }
@@ -169,66 +169,67 @@ func (w *websocket) addEventListeners() {
 func (w *websocket) Write(packets []*packet.Packet) {
 	w.SetWritable(false)
 
-	go func() {
-		// fake drain
-		// defer to next tick to allow Socket to clear writeBuffer
-		defer func() {
-			w.SetWritable(true)
-			w.Emit("drain")
-		}()
+	go w.write(packets)
+}
+func (w *websocket) write(packets []*packet.Packet) {
+	// fake drain
+	// defer to next tick to allow Socket to clear writeBuffer
+	defer func() {
+		w.SetWritable(true)
+		w.Emit("drain")
+	}()
 
-		w.mu.Lock()
-		defer w.mu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-		// encodePacket efficient as it uses websocket framing
-		// no need for encodePayload
-		for _, packet := range packets {
-			// always creates a new object since ws modifies it
-			compress := false
-			if packet.Options != nil {
-				compress = packet.Options.Compress
+	// encodePacket efficient as it uses websocket framing
+	// no need for encodePayload
+	for _, packet := range packets {
+		// always creates a new object since ws modifies it
+		compress := false
+		if packet.Options != nil {
+			compress = packet.Options.Compress
 
-				if w.Opts().PerMessageDeflate() == nil && packet.Options.WsPreEncodedFrame != nil {
-					mt := ws.BinaryMessage
-					if _, ok := packet.Options.WsPreEncodedFrame.(*types.StringBuffer); ok {
-						mt = ws.TextMessage
-					}
-					pm, err := ws.NewPreparedMessage(mt, packet.Options.WsPreEncodedFrame.Bytes())
-					if err != nil {
-						client_websocket_log.Debug(`Send Error "%s"`, err.Error())
-						if errors.Is(err, net.ErrClosed) {
-							w.socket.Emit("close")
-						} else {
-							w.socket.Emit("error", err)
-						}
-						return
-					}
-					if err := w.socket.WritePreparedMessage(pm); err != nil {
-						client_websocket_log.Debug(`Send Error "%s"`, err.Error())
-						if errors.Is(err, net.ErrClosed) {
-							w.socket.Emit("close")
-						} else {
-							w.socket.Emit("error", err)
-						}
-						return
+			if w.Opts().PerMessageDeflate() == nil && packet.Options.WsPreEncodedFrame != nil {
+				mt := ws.BinaryMessage
+				if _, ok := packet.Options.WsPreEncodedFrame.(*types.StringBuffer); ok {
+					mt = ws.TextMessage
+				}
+				pm, err := ws.NewPreparedMessage(mt, packet.Options.WsPreEncodedFrame.Bytes())
+				if err != nil {
+					client_websocket_log.Debug(`Send Error "%s"`, err.Error())
+					if errors.Is(err, net.ErrClosed) {
+						w.socket.Emit("close")
+					} else {
+						w.socket.Emit("error", err)
 					}
 					return
 				}
-			}
-
-			data, err := parser.Parserv4().EncodePacket(packet, w.SupportsBinary())
-			if err != nil {
-				client_websocket_log.Debug(`Send Error "%s"`, err.Error())
-				if errors.Is(err, net.ErrClosed) {
-					w.socket.Emit("close")
-				} else {
-					w.socket.Emit("error", err)
+				if err := w.socket.WritePreparedMessage(pm); err != nil {
+					client_websocket_log.Debug(`Send Error "%s"`, err.Error())
+					if errors.Is(err, net.ErrClosed) {
+						w.socket.Emit("close")
+					} else {
+						w.socket.Emit("error", err)
+					}
+					return
 				}
 				return
 			}
-			w.doWrite(data, compress)
 		}
-	}()
+
+		data, err := parser.Parserv4().EncodePacket(packet, w.SupportsBinary())
+		if err != nil {
+			client_websocket_log.Debug(`Send Error "%s"`, err.Error())
+			if errors.Is(err, net.ErrClosed) {
+				w.socket.Emit("close")
+			} else {
+				w.socket.Emit("error", err)
+			}
+			return
+		}
+		w.doWrite(data, compress)
+	}
 }
 
 // doWrite performs the actual WebSocket write operation.

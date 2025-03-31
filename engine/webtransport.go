@@ -126,9 +126,9 @@ func (w *webTransport) DoOpen() {
 	w.addEventListeners()
 }
 
-// _init handles the WebTransport message reading loop.
+// message handles the WebTransport message reading loop.
 // This method processes incoming WebTransport messages and handles different message types.
-func (w *webTransport) _init() {
+func (w *webTransport) message() {
 	for {
 		mt, message, err := w.session.NextReader()
 		if err != nil {
@@ -170,9 +170,9 @@ func (w *webTransport) _init() {
 	}
 }
 
-// _handshake performs the initial handshake with the server.
+// handshake performs the initial handshake with the server.
 // This method sends an OPEN packet with the session ID if available.
-func (w *webTransport) _handshake() {
+func (w *webTransport) handshake() {
 	packet := &packet.Packet{
 		Type: packet.OPEN,
 	}
@@ -197,6 +197,8 @@ func (w *webTransport) _handshake() {
 		return
 	}
 	w.doWrite(data, true)
+
+	w.OnOpen()
 }
 
 // addEventListeners sets up event handlers for the WebTransport connection.
@@ -210,11 +212,9 @@ func (w *webTransport) addEventListeners() {
 		w.OnClose(NewTransportError("webtransport connection closed", nil, w.session.Session().Context()).Err())
 	})
 
-	go w._init()
+	go w.message()
 
-	w._handshake()
-
-	w.OnOpen()
+	go w.handshake()
 }
 
 // Write sends packets over the WebTransport connection.
@@ -222,66 +222,67 @@ func (w *webTransport) addEventListeners() {
 func (w *webTransport) Write(packets []*packet.Packet) {
 	w.SetWritable(false)
 
-	go func() {
-		// fake drain
-		// defer to next tick to allow Socket to clear writeBuffer
-		defer func() {
-			w.SetWritable(true)
-			w.Emit("drain")
-		}()
+	go w.write(packets)
+}
+func (w *webTransport) write(packets []*packet.Packet) {
+	// fake drain
+	// defer to next tick to allow Socket to clear writeBuffer
+	defer func() {
+		w.SetWritable(true)
+		w.Emit("drain")
+	}()
 
-		w.mu.Lock()
-		defer w.mu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-		// encodePacket efficient as it uses webTransport framing
-		// no need for encodePayload
-		for _, packet := range packets {
-			// always creates a new object since ws modifies it
-			compress := false
-			if packet.Options != nil {
-				compress = packet.Options.Compress
+	// encodePacket efficient as it uses webTransport framing
+	// no need for encodePayload
+	for _, packet := range packets {
+		// always creates a new object since ws modifies it
+		compress := false
+		if packet.Options != nil {
+			compress = packet.Options.Compress
 
-				if w.Opts().PerMessageDeflate() == nil && packet.Options.WsPreEncodedFrame != nil {
-					mt := webtransport.BinaryMessage
-					if _, ok := packet.Options.WsPreEncodedFrame.(*types.StringBuffer); ok {
-						mt = webtransport.TextMessage
-					}
-					pm, err := webtransport.NewPreparedMessage(mt, packet.Options.WsPreEncodedFrame.Bytes())
-					if err != nil {
-						client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
-						if errors.Is(err, net.ErrClosed) {
-							w.session.Emit("close")
-						} else {
-							w.session.Emit("error", err)
-						}
-						return
-					}
-					if err := w.session.WritePreparedMessage(pm); err != nil {
-						client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
-						if errors.Is(err, net.ErrClosed) {
-							w.session.Emit("close")
-						} else {
-							w.session.Emit("error", err)
-						}
-						return
+			if w.Opts().PerMessageDeflate() == nil && packet.Options.WsPreEncodedFrame != nil {
+				mt := webtransport.BinaryMessage
+				if _, ok := packet.Options.WsPreEncodedFrame.(*types.StringBuffer); ok {
+					mt = webtransport.TextMessage
+				}
+				pm, err := webtransport.NewPreparedMessage(mt, packet.Options.WsPreEncodedFrame.Bytes())
+				if err != nil {
+					client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
+					if errors.Is(err, net.ErrClosed) {
+						w.session.Emit("close")
+					} else {
+						w.session.Emit("error", err)
 					}
 					return
 				}
-			}
-
-			data, err := parser.Parserv4().EncodePacket(packet, w.SupportsBinary())
-			if err != nil {
-				client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
-				if errors.Is(err, net.ErrClosed) {
-					w.session.Emit("close")
-				} else {
-					w.session.Emit("error", err)
+				if err := w.session.WritePreparedMessage(pm); err != nil {
+					client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
+					if errors.Is(err, net.ErrClosed) {
+						w.session.Emit("close")
+					} else {
+						w.session.Emit("error", err)
+					}
+					return
 				}
 				return
 			}
-			w.doWrite(data, compress)
 		}
-	}()
+
+		data, err := parser.Parserv4().EncodePacket(packet, w.SupportsBinary())
+		if err != nil {
+			client_webtransport_log.Debug(`Send Error "%s"`, err.Error())
+			if errors.Is(err, net.ErrClosed) {
+				w.session.Emit("close")
+			} else {
+				w.session.Emit("error", err)
+			}
+			return
+		}
+		w.doWrite(data, compress)
+	}
 }
 
 // doWrite performs the actual WebTransport write operation.

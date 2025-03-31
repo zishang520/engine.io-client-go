@@ -170,7 +170,7 @@ func MakeSocketWithoutUpgrade() SocketWithoutUpgrade {
 		_maxPayload:   -1,
 	}
 
-	s._prevBufferLen.Store(0)
+	// s._prevBufferLen.Store(0)
 	s._pingTimeoutTime.Store(math.Inf(1))
 
 	s.protocol = parser.Protocol
@@ -353,8 +353,9 @@ func (s *socketWithoutUpgrade) _open() {
 	s.readyState.Store(SocketStateOpening)
 
 	transport := s._proto_.CreateTransport(transportName)
-	transport.Open()
 	s._proto_.SetTransport(transport)
+
+	transport.Open()
 }
 
 // SetTransport configures the current transport and sets up event listeners.
@@ -468,12 +469,12 @@ func (s *socketWithoutUpgrade) _resetPingTimeout() {
 // _onDrain handles the drain event from the transport.
 // It manages the write buffer and triggers appropriate events when the buffer is cleared.
 func (s *socketWithoutUpgrade) _onDrain() {
-	s.writeBuffer.Splice(0, int(s._prevBufferLen.Load()))
+	// s.writeBuffer.Splice(0, int(s._prevBufferLen.Load()))
 
 	// setting prevBufferLen = 0 is very important
 	// for example, when upgrading, upgrade packet is sent over,
 	// and a nonzero prevBufferLen could cause problems on `drain`
-	s._prevBufferLen.Store(0)
+	// s._prevBufferLen.Store(0)
 
 	// Will there be any concurrency issues?
 	if s.writeBuffer.Len() == 0 {
@@ -486,14 +487,15 @@ func (s *socketWithoutUpgrade) _onDrain() {
 // Flush sends buffered packets to the transport.
 // It ensures packets are sent within payload size limits and handles transport state.
 func (s *socketWithoutUpgrade) Flush() {
-	if SocketStateClosed != s.ReadyState() && s.Transport().Writable() && !s.Upgrading() && s.writeBuffer.Len() > 0 {
-		packets := s._getWritablePackets()
-		client_socket_log.Debug("flushing %d packets in socket", len(packets))
-		s.Transport().Send(packets)
-		// keep track of current length of writeBuffer
-		// splice writeBuffer and callbackBuffer on `drain`
-		s._prevBufferLen.Store(uint32(len(packets)))
-		s.Emit("flush")
+	if SocketStateClosed != s.ReadyState() && s.Transport().Writable() && !s.Upgrading() {
+		if packets := s._getWritablePackets(); len(packets) > 0 {
+			client_socket_log.Debug("flushing %d packets in socket", len(packets))
+			s.Transport().Send(packets)
+			// // keep track of current length of writeBuffer
+			// // splice writeBuffer and callbackBuffer on `drain`
+			// s._prevBufferLen.Store(uint32(len(packets)))
+			s.Emit("flush")
+		}
 	}
 }
 
@@ -501,34 +503,35 @@ func (s *socketWithoutUpgrade) Flush() {
 // It handles packet encoding and size calculation for different transport types.
 func (s *socketWithoutUpgrade) _getWritablePackets() (res []*packet.Packet) {
 	if !(s._maxPayload != 0 && s.Transport().Name() == transports.POLLING && s.writeBuffer.Len() > 1) {
-		return s.writeBuffer.All()
+		return s.writeBuffer.AllAndClear()
 	}
 
 	payloadSize := int64(1) // first packet type
-	for i, data := range s.writeBuffer.All() {
-		if data != nil {
-			switch v := data.Data.(type) {
-			case *types.StringBuffer:
-				payloadSize += int64(v.Len())
-			case *strings.Reader:
-				payloadSize += int64(v.Len())
-			case interface{ Len() int }:
-				payloadSize += int64(math.Ceil(float64(v.Len()) * BASE64_OVERHEAD))
-			default:
-				snapshot, _ := types.NewBytesBufferReader(v)
-				payloadSize += int64(math.Ceil(float64(snapshot.Len()) * BASE64_OVERHEAD))
-				data.Data = snapshot
-			}
+	if datas, _ := s.writeBuffer.RangeAndSplice(func(packet *packet.Packet, i int) (bool, int, int, []*packet.Packet) {
+		switch v := packet.Data.(type) {
+		case *types.StringBuffer:
+			payloadSize += int64(v.Len())
+		case *strings.Reader:
+			payloadSize += int64(v.Len())
+		case interface{ Len() int }:
+			payloadSize += int64(math.Ceil(float64(v.Len()) * BASE64_OVERHEAD))
+		default:
+			snapshot, _ := types.NewBytesBufferReader(v)
+			payloadSize += int64(math.Ceil(float64(snapshot.Len()) * BASE64_OVERHEAD))
+			packet.Data = snapshot
 		}
 		if i > 0 && payloadSize > s._maxPayload {
 			client_socket_log.Debug("only send %d out of %d packets", i, payloadSize)
-			res, _ := s.writeBuffer.Slice(0, i)
-			return res
+			return true, 0, i, nil
 		}
 		payloadSize += 2 // separator + packet type
+		return false, 0, i, nil
+	}, false); len(datas) > 0 {
+		return datas
 	}
+
 	client_socket_log.Debug("payload size is %d (max: %d)", payloadSize, s._maxPayload)
-	return s.writeBuffer.All()
+	return s.writeBuffer.AllAndClear()
 }
 
 // HasPingExpired checks if the connection has timed out due to missed heartbeats.
@@ -573,7 +576,9 @@ func (s *socketWithoutUpgrade) _sendPacket(_type packet.Type, data io.Reader, op
 		Options: options,
 	}
 	s.Emit("packetCreate", packet)
+
 	s.writeBuffer.Push(packet)
+
 	if fn != nil {
 		s.Once("flush", func(...any) {
 			fn()
@@ -681,6 +686,6 @@ func (s *socketWithoutUpgrade) _onClose(reason string, description error) {
 		// clean buffers after, so users can still
 		// grab the buffers on `close` event
 		s.writeBuffer.Clear()
-		s._prevBufferLen.Store(0)
+		// s._prevBufferLen.Store(0)
 	}
 }
