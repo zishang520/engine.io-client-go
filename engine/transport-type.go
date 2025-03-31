@@ -9,82 +9,85 @@ import (
 	"github.com/zishang520/engine.io/v2/types"
 )
 
-// Transport defines the interface for all transport implementations in Engine.IO.
-// It provides a common set of methods that all transport types must implement.
-type Transport interface {
-	// Extends EventEmitter for event-based communication
-	types.EventEmitter
+type (
 
-	// Prototype methods for interface implementation
-	Prototype(Transport)
-	Proto() Transport
+	// Transport defines the interface for all transport implementations in Engine.IO.
+	// It provides a common set of methods that all transport types must implement.
+	Transport interface {
+		// Extends EventEmitter for event-based communication
+		types.EventEmitter
 
-	// Setters for transport state and configuration
-	SetWritable(bool)
-	// Protected: Internal state management
-	SetReadyState(TransportState)
+		// Prototype methods for interface implementation
+		Prototype(Transport)
+		Proto() Transport
 
-	// Getters for transport properties
-	// Abstract: Must be implemented by specific transport types
-	Name() string
-	Query() url.Values
-	Writable() bool
+		// Setters for transport state and configuration
+		SetWritable(bool)
+		// Protected: Internal state management
+		SetReadyState(TransportState)
 
-	// Protected: Internal access methods
-	Opts() SocketOptionsInterface
-	SupportsBinary() bool
-	ReadyState() TransportState
-	Socket() Socket
+		// Getters for transport properties
+		// Abstract: Must be implemented by specific transport types
+		Name() string
+		Query() url.Values
+		Writable() bool
 
-	// Core transport methods
-	Construct(Socket, SocketOptionsInterface)
-	// Protected: Error handling
-	OnError(string, error, context.Context) Transport
-	Open() Transport
-	Close() Transport
-	Send([]*packet.Packet)
-	// Protected: Event handlers
-	OnOpen()
-	OnData(types.BufferInterface)
-	OnPacket(*packet.Packet)
-	OnClose(error)
-	Pause(func())
+		// Protected: Internal access methods
+		Opts() SocketOptionsInterface
+		SupportsBinary() bool
+		ReadyState() TransportState
+		Socket() Socket
 
-	// Protected: URI handling
-	CreateUri(string, url.Values) *url.URL
+		// Core transport methods
+		Construct(Socket, SocketOptionsInterface)
+		// Protected: Error handling
+		OnError(string, error, context.Context) Transport
+		Open() Transport
+		Close() Transport
+		Send([]*packet.Packet)
+		// Protected: Event handlers
+		OnOpen()
+		OnData(types.BufferInterface)
+		OnPacket(*packet.Packet)
+		OnClose(error)
+		Pause(func())
 
-	// Protected: Abstract methods that must be implemented by specific transports
-	DoOpen()
-	DoClose()
-	Write([]*packet.Packet)
-}
+		// Protected: URI handling
+		CreateUri(string, url.Values) *url.URL
 
-// Polling represents the HTTP long-polling transport type.
-// This transport uses regular HTTP requests to simulate real-time communication.
-type Polling interface {
-	Transport
-}
+		// Protected: Abstract methods that must be implemented by specific transports
+		DoOpen()
+		DoClose()
+		Write([]*packet.Packet)
+	}
 
-// WebSocket represents the WebSocket transport type.
-// This transport provides full-duplex communication over a single TCP connection.
-type WebSocket interface {
-	Transport
-}
+	// Polling represents the HTTP long-polling transport type.
+	// This transport uses regular HTTP requests to simulate real-time communication.
+	Polling interface {
+		Transport
+	}
 
-// WebTransport represents the WebTransport transport type.
-// This transport provides low-latency, bidirectional communication using the QUIC protocol.
-//
-// WebTransport is a modern transport that offers several advantages:
-// - Lower latency than WebSocket
-// - Better multiplexing support
-// - Built-in congestion control
-// - Support for unreliable datagrams
-//
-// See: https://developer.mozilla.org/en-US/docs/Web/API/WebTransport
-// See: https://caniuse.com/webtransport
-type WebTransport interface {
-	Transport
-}
+	// WebSocket represents the WebSocket transport type.
+	// This transport provides full-duplex communication over a single TCP connection.
+	WebSocket interface {
+		Transport
+	}
+
+	// WebTransport represents the WebTransport transport type.
+	// This transport provides low-latency, bidirectional communication using the QUIC protocol.
+	//
+	// WebTransport is a modern transport that offers several advantages:
+	// - Lower latency than WebSocket
+	// - Better multiplexing support
+	// - Built-in congestion control
+	// - Support for unreliable datagrams
+	//
+	// See: https://developer.mozilla.org/en-US/docs/Web/API/WebTransport
+	// See: https://caniuse.com/webtransport
+	WebTransport interface {
+		Transport
+	}
+)
 
 // WebSocketBuilder implements the transport builder pattern for WebSocket connections.
 type WebSocketBuilder struct{}

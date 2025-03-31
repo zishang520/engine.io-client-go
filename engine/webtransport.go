@@ -11,13 +11,13 @@ import (
 	"net/url"
 	"sync"
 
-	wt "github.com/quic-go/webtransport-go"
 	"github.com/zishang520/engine.io-client-go/request"
 	"github.com/zishang520/engine.io-go-parser/packet"
 	"github.com/zishang520/engine.io-go-parser/parser"
 	"github.com/zishang520/engine.io/v2/transports"
 	"github.com/zishang520/engine.io/v2/types"
 	"github.com/zishang520/engine.io/v2/webtransport"
+	wt "github.com/zishang520/webtransport-go"
 )
 
 // webTransport implements the WebTransport transport for Engine.IO.

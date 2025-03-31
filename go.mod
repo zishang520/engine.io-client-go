@@ -7,9 +7,9 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.0
 	github.com/quic-go/quic-go v0.50.1
-	github.com/quic-go/webtransport-go v0.0.0-20241018022711-4ac2c9250e66
 	github.com/zishang520/engine.io-go-parser v1.3.2
-	github.com/zishang520/engine.io/v2 v2.4.6
+	github.com/zishang520/engine.io/v2 v2.4.8
+	github.com/zishang520/webtransport-go v0.8.6
 	resty.dev/v3 v3.0.0-beta.2
 )
 

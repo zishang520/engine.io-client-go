@@ -238,10 +238,12 @@ func (s *socketWithoutUpgrade) Construct(uri string, opts SocketOptionsInterface
 
 	s.transports = types.NewSet[string]()
 	s._transportsByName = map[string]TransportCtor{}
-	for _, transport := range opts.Transports().Keys() {
-		transportName := transport.Name()
-		s.transports.Add(transportName)
-		s._transportsByName[transportName] = transport
+	if transports := opts.Transports(); transports != nil {
+		for _, transport := range transports.Keys() {
+			transportName := transport.Name()
+			s.transports.Add(transportName)
+			s._transportsByName[transportName] = transport
+		}
 	}
 
 	s.opts = DefaultSocketOptions()
