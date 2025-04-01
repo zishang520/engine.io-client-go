@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -95,6 +96,8 @@ type socketWithoutUpgrade struct {
 	// Static fields
 	priorWebsocketSuccess atomic.Bool // Previous WebSocket connection success flag
 	protocol              int         // Engine.IO protocol version
+
+	flushMu sync.Mutex
 }
 
 func (s *socketWithoutUpgrade) Prototype(_proto_ SocketWithoutUpgrade) {
@@ -487,6 +490,9 @@ func (s *socketWithoutUpgrade) _onDrain() {
 // Flush sends buffered packets to the transport.
 // It ensures packets are sent within payload size limits and handles transport state.
 func (s *socketWithoutUpgrade) Flush() {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+
 	if SocketStateClosed != s.ReadyState() && s.Transport().Writable() && !s.Upgrading() {
 		if packets := s._getWritablePackets(); len(packets) > 0 {
 			client_socket_log.Debug("flushing %d packets in socket", len(packets))
@@ -508,23 +514,25 @@ func (s *socketWithoutUpgrade) _getWritablePackets() (res []*packet.Packet) {
 
 	payloadSize := int64(1) // first packet type
 	if datas, _ := s.writeBuffer.RangeAndSplice(func(packet *packet.Packet, i int) (bool, int, int, []*packet.Packet) {
-		switch v := packet.Data.(type) {
-		case *types.StringBuffer:
-			payloadSize += int64(v.Len())
-		case *strings.Reader:
-			payloadSize += int64(v.Len())
-		case interface{ Len() int }:
-			payloadSize += int64(math.Ceil(float64(v.Len()) * BASE64_OVERHEAD))
-		default:
-			snapshot, _ := types.NewBytesBufferReader(v)
-			payloadSize += int64(math.Ceil(float64(snapshot.Len()) * BASE64_OVERHEAD))
-			packet.Data = snapshot
+		if packet.Data != nil {
+			switch v := packet.Data.(type) {
+			case *types.StringBuffer:
+				payloadSize += int64(v.Len())
+			case *strings.Reader:
+				payloadSize += int64(v.Len())
+			case interface{ Len() int }:
+				payloadSize += int64(math.Ceil(float64(v.Len()) * BASE64_OVERHEAD))
+			default:
+				snapshot, _ := types.NewBytesBufferReader(v)
+				payloadSize += int64(math.Ceil(float64(snapshot.Len()) * BASE64_OVERHEAD))
+				packet.Data = snapshot
+			}
+			if i > 0 && payloadSize > s._maxPayload {
+				client_socket_log.Debug("only send %d out of %d packets", i, payloadSize)
+				return true, 0, i, nil
+			}
+			payloadSize += 2 // separator + packet type
 		}
-		if i > 0 && payloadSize > s._maxPayload {
-			client_socket_log.Debug("only send %d out of %d packets", i, payloadSize)
-			return true, 0, i, nil
-		}
-		payloadSize += 2 // separator + packet type
 		return false, 0, i, nil
 	}, false); len(datas) > 0 {
 		return datas
