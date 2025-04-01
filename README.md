@@ -114,7 +114,7 @@ func main() {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| Transports | []string | ["polling", "websocket", "webtransport"] | Available transport methods |
+| Transports | *types.Set[TransportCtor] | types.NewSet(transports.Polling, transports.WebSocket, transports.WebTransport) | Available transport methods |
 | Path | string | "/engine.io" | Connection endpoint path |
 | Query | url.Values | nil | URL query parameters |
 | Upgrade | bool | true | Enable transport upgrade |
