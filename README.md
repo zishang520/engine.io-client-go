@@ -1,5 +1,6 @@
 # Engine.IO Client for Go
 
+[![Build Status](https://github.com/zishang520/engine.io-client-go/actions/workflows/go.yml/badge.svg)](https://github.com/zishang520/engine.io-client-go/actions/workflows/go.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/zishang520/engine.io-client-go.svg)](https://pkg.go.dev/github.com/zishang520/engine.io-client-go)
 
 A robust Go client implementation for [Engine.IO](http://github.com/zishang520/engine.io), the reliable real-time bidirectional communication layer that powers [Socket.IO](http://github.com/zishang520/socket.io).
