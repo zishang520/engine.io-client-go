@@ -14,32 +14,29 @@ import (
 	"github.com/zishang520/engine.io/v2/utils"
 )
 
-// SocketWithUpgrade provides a WebSocket-like interface to connect to an Engine.IO server.
-// The connection will be established with one of the available low-level transports,
-// such as HTTP long-polling, WebSocket, or WebTransport.
+// socketWithUpgrade implements an Engine.IO socket that supports transport upgrades.
+// It starts with a basic transport (typically HTTP long-polling) and automatically
+// attempts to upgrade to more efficient transports (like WebSocket) after establishing
+// the initial connection.
 //
-// This implementation includes an upgrade mechanism that attempts to upgrade the initial
-// transport to a better one after the connection is established.
+// Features:
+//   - Automatic transport upgrade
+//   - Fallback to lower-level transports
+//   - Seamless packet handling during upgrades
+//   - Connection state management
+//   - Binary data support
 //
-// To enable tree-shaking, no transports are included by default. The `transports` option
-// must be explicitly specified when creating a new socket.
+// Example:
 //
-// Example usage:
-//
-//	import (
-//		"github.com/zishang520/engine.io-client-go/engine"
-//		"github.com/zishang520/engine.io-client-go/transports"
-//		"github.com/zishang520/engine.io/v2/types"
-//	)
-//
-//	func main() {
-//		opts := engine.DefaultSocketOptions()
-//		opts.SetTransports(types.NewSet(transports.Polling, transports.WebSocket, transports.WebTransport))
-//		socket := engine.NewSocket("http://localhost:8080", opts)
-//		socket.On("open", func(...any) {
-//			socket.Send("hello")
-//		})
-//	}
+//	opts := engine.DefaultSocketOptions()
+//	opts.SetTransports(types.NewSet(
+//	    transports.Polling,    // Initial transport
+//	    transports.WebSocket,  // Upgrade target
+//	))
+//	socket := engine.NewSocketWithUpgrade("http://localhost:8080", opts)
+//	socket.On("open", func(...any) {
+//	    socket.Send("hello")
+//	})
 //
 // See: [SocketWithoutUpgrade]
 //
@@ -47,11 +44,14 @@ import (
 type socketWithUpgrade struct {
 	SocketWithoutUpgrade
 
-	_upgrades *types.Set[string]
+	_upgrades *types.Set[string] // Available transport upgrades
 }
 
-// MakeSocketWithUpgrade creates a new SocketWithUpgrade instance with default settings.
-// It initializes the base SocketWithoutUpgrade and sets up the upgrades set.
+// MakeSocketWithUpgrade creates a new socket instance with upgrade support.
+// It initializes the base socket and prepares the upgrade mechanism.
+//
+// Returns:
+//   - SocketWithUpgrade: A new socket instance with upgrade capabilities
 func MakeSocketWithUpgrade() SocketWithUpgrade {
 	s := &socketWithUpgrade{
 		SocketWithoutUpgrade: MakeSocketWithoutUpgrade(),
@@ -59,22 +59,25 @@ func MakeSocketWithUpgrade() SocketWithUpgrade {
 	}
 
 	s.Prototype(s)
-
 	return s
 }
 
-// NewSocketWithUpgrade creates a new SocketWithUpgrade instance with the specified URI and options.
-// It initializes the socket and establishes the connection using the provided configuration.
+// NewSocketWithUpgrade creates a new socket with the specified URI and options.
+//
+// Parameters:
+//   - uri: The server URI to connect to (e.g., "http://localhost:8080")
+//   - opts: Socket configuration options
+//
+// Returns:
+//   - SocketWithUpgrade: A configured socket instance
 func NewSocketWithUpgrade(uri string, opts SocketOptionsInterface) SocketWithUpgrade {
 	s := MakeSocketWithUpgrade()
-
 	s.Construct(uri, opts)
-
 	return s
 }
 
-// OnOpen is called when the socket connection is established.
-// If upgrade is enabled in the options, it will start probing for better transport options.
+// OnOpen handles the socket open event. If upgrade is enabled, it initiates
+// transport upgrade probes for available upgrade options.
 func (s *socketWithUpgrade) OnOpen() {
 	s.SocketWithoutUpgrade.OnOpen()
 
@@ -86,9 +89,18 @@ func (s *socketWithUpgrade) OnOpen() {
 	}
 }
 
-// _probe attempts to upgrade the current transport to a better one.
-// It creates a new transport instance and tests its compatibility with the server.
-// If successful, it will upgrade the connection to use the new transport.
+// _probe attempts to upgrade to a specified transport type.
+// It creates a new transport instance and tests its viability through
+// a probe packet exchange.
+//
+// The probe process:
+//  1. Creates a new transport instance
+//  2. Sends a probe packet
+//  3. Waits for probe response
+//  4. If successful, upgrades to the new transport
+//
+// Parameters:
+//   - name: The name of the transport to probe (e.g., "websocket")
 func (s *socketWithUpgrade) _probe(name string) {
 	client_socket_log.Debug(`probing transport "%s"`, name)
 	transport := s.Proto().CreateTransport(name)
@@ -161,24 +173,16 @@ func (s *socketWithUpgrade) _probe(name string) {
 		if failed.Load() {
 			return
 		}
-
-		// Any callback called by transport should be ignored since now
 		failed.Store(true)
-
 		cleanup()
-
 		transport.Close()
 		transport = nil
 	}
 
-	// Handle any error that happens while probing
 	onerror := func(errs ...any) {
 		e := fmt.Errorf("[%s] probe error: %w", transport.Name(), errs[0].(error))
-
 		freezeTransport()
-
 		client_socket_log.Debug(`probe transport "%s" failed because of error: %v`, name, e)
-
 		s.Emit("upgradeError", e)
 	}
 
@@ -186,12 +190,10 @@ func (s *socketWithUpgrade) _probe(name string) {
 		onerror(errors.New("transport closed"))
 	}
 
-	// When the socket is closed while we're probing
 	onclose := func(...any) {
 		onerror(errors.New("socket closed"))
 	}
 
-	// When the socket is upgraded while we're probing
 	onupgrade := func(to ...any) {
 		if to, ok := to[0].(Transport); ok && to != nil && transport != nil && to.Name() != transport.Name() {
 			client_socket_log.Debug(`"%s" works - aborting "%s"`, to.Name(), transport.Name())
@@ -199,7 +201,6 @@ func (s *socketWithUpgrade) _probe(name string) {
 		}
 	}
 
-	// Remove all listeners on the transport and on self
 	cleanup = func() {
 		transport.RemoveListener("open", onTransportOpen)
 		transport.RemoveListener("error", onerror)
@@ -227,14 +228,25 @@ func (s *socketWithUpgrade) _probe(name string) {
 	}
 }
 
-// OnHandshake is called when the initial handshake with the server is completed.
-// It filters the available upgrades based on the server's capabilities and client configuration.
+// OnHandshake processes the initial handshake data from the server.
+// It filters the available transport upgrades based on server capabilities
+// and client configuration.
+//
+// Parameters:
+//   - data: Handshake data received from the server
 func (s *socketWithUpgrade) OnHandshake(data *HandshakeData) {
 	s._upgrades = s._filterUpgrades(data.Upgrades)
 	s.SocketWithoutUpgrade.OnHandshake(data)
 }
 
-// Filters upgrades, returning only those matching client transports.
+// _filterUpgrades filters the server's supported upgrades against the client's
+// configured transports.
+//
+// Parameters:
+//   - upgrades: List of transport names supported by the server
+//
+// Returns:
+//   - *types.Set[string]: Set of mutually supported transport names
 func (s *socketWithUpgrade) _filterUpgrades(upgrades []string) *types.Set[string] {
 	filteredUpgrades := types.NewSet[string]()
 	for _, upgrade := range upgrades {

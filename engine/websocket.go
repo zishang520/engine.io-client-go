@@ -16,29 +16,48 @@ import (
 	"github.com/zishang520/engine.io/v2/types"
 )
 
-// websocket implements the WebSocket transport for Engine.IO.
-// This transport provides full-duplex communication over a single TCP connection
-// using the WebSocket protocol.
+// WebSocket implements the WebSocket transport for Engine.IO.
+// It provides full-duplex communication over a single TCP connection using
+// the WebSocket protocol. This transport supports both text and binary
+// data transmission, with optional compression.
+//
+// Features:
+//   - Full-duplex communication
+//   - Binary data support
+//   - Message compression (optional)
+//   - Automatic reconnection
+//   - Custom protocols support
 type websocket struct {
 	Transport
 
-	// dialer is the WebSocket dialer used to establish connections
+	// dialer is the WebSocket dialer used to establish connections.
+	// It handles connection establishment with custom options like
+	// proxy settings, TLS configuration, and protocol selection.
 	dialer *ws.Dialer
 
-	// socket is the WebSocket connection instance
+	// socket is the active WebSocket connection instance.
+	// It provides the actual communication channel with the server.
 	socket *types.WebSocketConn
 
-	// mu is a mutex to protect concurrent access to the WebSocket connection
+	// mu protects concurrent access to the WebSocket connection.
+	// This ensures thread-safe operations on the connection.
 	mu sync.Mutex
 }
 
 // Name returns the identifier for the WebSocket transport.
+// This identifier is used in transport selection and upgrade processes.
+//
+// Returns:
+//   - string: The transport name ("websocket")
 func (w *websocket) Name() string {
 	return transports.WEBSOCKET
 }
 
 // MakeWebSocket creates a new WebSocket transport instance with default settings.
 // This is the factory function for creating a new WebSocket transport.
+//
+// Returns:
+//   - WebSocket: A new WebSocket transport instance initialized with default settings
 func MakeWebSocket() WebSocket {
 	s := &websocket{
 		Transport: MakeTransport(),
@@ -49,13 +68,15 @@ func MakeWebSocket() WebSocket {
 	return s
 }
 
-// NewWebSocket creates a new WebSocket transport instance with the specified socket and options.
+// NewWebSocket creates a new WebSocket transport instance with the specified
+// socket and options.
 //
 // Parameters:
 //   - socket: The parent socket instance
 //   - opts: The socket options configuration
 //
-// Returns: A new WebSocket transport instance
+// Returns:
+//   - WebSocket: A new WebSocket transport instance configured with the specified options
 func NewWebSocket(socket Socket, opts SocketOptionsInterface) WebSocket {
 	s := MakeWebSocket()
 
@@ -66,6 +87,10 @@ func NewWebSocket(socket Socket, opts SocketOptionsInterface) WebSocket {
 
 // Construct initializes the WebSocket transport with the given socket and options.
 // This sets up the WebSocket dialer with appropriate configuration for the connection.
+//
+// Parameters:
+//   - socket: The parent socket instance
+//   - opts: The socket options configuration
 func (w *websocket) Construct(socket Socket, opts SocketOptionsInterface) {
 	w.Transport.Construct(socket, opts)
 
@@ -80,6 +105,7 @@ func (w *websocket) Construct(socket Socket, opts SocketOptionsInterface) {
 
 // DoOpen initiates the WebSocket connection.
 // This method establishes the WebSocket connection and sets up event listeners.
+// It handles the initial handshake and connection setup process.
 func (w *websocket) DoOpen() {
 	headers := http.Header{}
 	for k, vs := range w.Opts().ExtraHeaders() {
@@ -99,6 +125,7 @@ func (w *websocket) DoOpen() {
 
 // message handles the WebSocket message reading loop.
 // This method processes incoming WebSocket messages and handles different message types.
+// It runs in a separate goroutine to continuously read messages from the connection.
 func (w *websocket) message() {
 	for {
 		mt, message, err := w.socket.NextReader()
@@ -150,7 +177,8 @@ func (w *websocket) message() {
 }
 
 // addEventListeners sets up event handlers for the WebSocket connection.
-// This method configures error and close event handlers and starts the message reading loop.
+// This method configures error and close event handlers and starts the
+// message reading loop.
 func (w *websocket) addEventListeners() {
 	w.socket.On("error", func(errs ...any) {
 		w.OnError("websocket error", errs[0].(error), nil)
@@ -166,11 +194,20 @@ func (w *websocket) addEventListeners() {
 
 // Write sends packets over the WebSocket connection.
 // This method handles packet encoding and WebSocket message framing.
+//
+// Parameters:
+//   - packets: Array of packets to be sent
 func (w *websocket) Write(packets []*packet.Packet) {
 	w.SetWritable(false)
 
 	go w.write(packets)
 }
+
+// write performs the actual packet writing operation.
+// This method runs in a separate goroutine to handle asynchronous writes.
+//
+// Parameters:
+//   - packets: Array of packets to be sent
 func (w *websocket) write(packets []*packet.Packet) {
 	// fake drain
 	// defer to next tick to allow Socket to clear writeBuffer
@@ -234,6 +271,10 @@ func (w *websocket) write(packets []*packet.Packet) {
 
 // doWrite performs the actual WebSocket write operation.
 // This method handles message compression and WebSocket message framing.
+//
+// Parameters:
+//   - data: The data to be written
+//   - compress: Whether to compress the message
 func (w *websocket) doWrite(data types.BufferInterface, compress bool) {
 	if perMessageDeflate := w.Opts().PerMessageDeflate(); perMessageDeflate != nil {
 		if data.Len() < perMessageDeflate.Threshold {
@@ -284,7 +325,11 @@ func (w *websocket) DoClose() {
 	}
 }
 
-// Generates uri for connection.
+// uri generates the URI for the WebSocket connection.
+// This method constructs the appropriate WebSocket URL with query parameters.
+//
+// Returns:
+//   - *url.URL: The constructed WebSocket URL
 func (w *websocket) uri() *url.URL {
 	schema := "ws"
 	if w.Opts().Secure() {

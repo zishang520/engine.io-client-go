@@ -28,16 +28,11 @@ import (
 // attempting to upgrade to a different transport type.
 //
 // Key features:
-//
-// - Maintains a persistent connection using the initial transport
-//
-// - Supports various transport types (HTTP long-polling, WebSocket, WebTransport)
-//
-// - Handles packet buffering and flushing
-//
-// - Manages connection state and heartbeat
-//
-// - Provides event-based communication
+//   - Maintains a persistent connection using the initial transport
+//   - Supports various transport types (HTTP long-polling, WebSocket, WebTransport)
+//   - Handles packet buffering and flushing
+//   - Manages connection state and heartbeat
+//   - Provides event-based communication
 //
 // Example usage:
 //
@@ -57,7 +52,6 @@ import (
 //	}
 //
 // See: [SocketWithUpgrade]
-//
 // See: [Socket]
 type socketWithoutUpgrade struct {
 	types.EventEmitter
@@ -100,14 +94,17 @@ type socketWithoutUpgrade struct {
 	flushMu sync.Mutex
 }
 
+// Prototype sets the prototype for method rewriting.
 func (s *socketWithoutUpgrade) Prototype(_proto_ SocketWithoutUpgrade) {
 	s._proto_ = _proto_
 }
 
+// Proto returns the current prototype instance.
 func (s *socketWithoutUpgrade) Proto() SocketWithoutUpgrade {
 	return s._proto_
 }
 
+// Id returns the unique session identifier.
 func (s *socketWithoutUpgrade) Id() string {
 	if id := s.id.Load(); id != nil {
 		return id.(string)
@@ -115,6 +112,7 @@ func (s *socketWithoutUpgrade) Id() string {
 	return ""
 }
 
+// Transport returns the current transport instance.
 func (s *socketWithoutUpgrade) Transport() Transport {
 	if transport := s.transport.Load(); transport != nil {
 		return *transport
@@ -122,6 +120,7 @@ func (s *socketWithoutUpgrade) Transport() Transport {
 	return nil
 }
 
+// ReadyState returns the current connection state.
 func (s *socketWithoutUpgrade) ReadyState() SocketState {
 	if readyState := s.readyState.Load(); readyState != nil {
 		return readyState.(SocketState)
@@ -129,40 +128,53 @@ func (s *socketWithoutUpgrade) ReadyState() SocketState {
 	return ""
 }
 
+// WriteBuffer returns the buffer for outgoing packets.
 func (s *socketWithoutUpgrade) WriteBuffer() *types.Slice[*packet.Packet] {
 	return s.writeBuffer
 }
 
+// Opts returns the socket options interface.
 func (s *socketWithoutUpgrade) Opts() SocketOptionsInterface {
 	return s.opts
 }
 
+// Transports returns the set of available transport types.
 func (s *socketWithoutUpgrade) Transports() *types.Set[string] {
 	return s.transports
 }
 
+// SetUpgrading sets the upgrading status flag.
 func (s *socketWithoutUpgrade) SetUpgrading(upgrading bool) {
 	s.upgrading.Store(upgrading)
 }
+
+// Upgrading returns the current upgrading status.
 func (s *socketWithoutUpgrade) Upgrading() bool {
 	return s.upgrading.Load()
 }
 
+// CookieJar returns the HTTP cookie jar for the socket.
 func (s *socketWithoutUpgrade) CookieJar() http.CookieJar {
 	return s._cookieJar
 }
 
+// SetPriorWebsocketSuccess sets the flag indicating previous WebSocket connection success.
 func (s *socketWithoutUpgrade) SetPriorWebsocketSuccess(priorWebsocketSuccess bool) {
 	s.priorWebsocketSuccess.Store(priorWebsocketSuccess)
 }
+
+// PriorWebsocketSuccess returns whether previous WebSocket connection was successful.
 func (s *socketWithoutUpgrade) PriorWebsocketSuccess() bool {
 	return s.priorWebsocketSuccess.Load()
 }
 
+// Protocol returns the Engine.IO protocol version.
 func (s *socketWithoutUpgrade) Protocol() int {
 	return parser.Protocol
 }
 
+// MakeSocketWithoutUpgrade creates a new socketWithoutUpgrade instance with default settings.
+// It initializes the basic socket structure without establishing a connection.
 func MakeSocketWithoutUpgrade() SocketWithoutUpgrade {
 	s := &socketWithoutUpgrade{
 		EventEmitter: types.NewEventEmitter(),
@@ -173,24 +185,23 @@ func MakeSocketWithoutUpgrade() SocketWithoutUpgrade {
 		_maxPayload:   -1,
 	}
 
-	// s._prevBufferLen.Store(0)
 	s._pingTimeoutTime.Store(math.Inf(1))
-
 	s.protocol = parser.Protocol
-
 	s.Prototype(s)
 
 	return s
 }
 
+// NewSocketWithoutUpgrade creates and initializes a new socket connection.
+// It takes a URI string and optional socket options to configure the connection.
 func NewSocketWithoutUpgrade(uri string, opts SocketOptionsInterface) SocketWithoutUpgrade {
 	s := MakeSocketWithoutUpgrade()
-
 	s.Construct(uri, opts)
-
 	return s
 }
 
+// Construct initializes the socket with the given URI and options.
+// It parses the URI, sets up transport options, and establishes the initial connection.
 func (s *socketWithoutUpgrade) Construct(uri string, opts SocketOptionsInterface) {
 	if opts == nil {
 		opts = DefaultSocketOptions()
@@ -472,14 +483,6 @@ func (s *socketWithoutUpgrade) _resetPingTimeout() {
 // _onDrain handles the drain event from the transport.
 // It manages the write buffer and triggers appropriate events when the buffer is cleared.
 func (s *socketWithoutUpgrade) _onDrain() {
-	// s.writeBuffer.Splice(0, int(s._prevBufferLen.Load()))
-
-	// setting prevBufferLen = 0 is very important
-	// for example, when upgrading, upgrade packet is sent over,
-	// and a nonzero prevBufferLen could cause problems on `drain`
-	// s._prevBufferLen.Store(0)
-
-	// Will there be any concurrency issues?
 	if s.writeBuffer.Len() == 0 {
 		s.Emit("drain")
 	} else {
@@ -497,9 +500,6 @@ func (s *socketWithoutUpgrade) Flush() {
 		if packets := s._getWritablePackets(); len(packets) > 0 {
 			client_socket_log.Debug("flushing %d packets in socket", len(packets))
 			s.Transport().Send(packets)
-			// // keep track of current length of writeBuffer
-			// // splice writeBuffer and callbackBuffer on `drain`
-			// s._prevBufferLen.Store(uint32(len(packets)))
 			s.Emit("flush")
 		}
 	}
@@ -694,6 +694,5 @@ func (s *socketWithoutUpgrade) _onClose(reason string, description error) {
 		// clean buffers after, so users can still
 		// grab the buffers on `close` event
 		s.writeBuffer.Clear()
-		// s._prevBufferLen.Store(0)
 	}
 }

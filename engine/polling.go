@@ -14,26 +14,43 @@ import (
 	"github.com/zishang520/engine.io/v2/types"
 )
 
-// polling implements the HTTP long-polling transport for Engine.IO.
-// This transport uses regular HTTP requests to simulate real-time communication
-// by keeping connections open until data is available or a timeout occurs.
+// Polling implements the HTTP long-polling transport for Engine.IO.
+// This transport provides real-time communication simulation through repeated
+// HTTP requests. It serves as a fallback mechanism when WebSocket is not available
+// and ensures maximum compatibility across different environments.
+//
+// Features:
+//   - HTTP/HTTPS support
+//   - Automatic reconnection
+//   - Binary data support (via base64 encoding)
+//   - Cross-domain compatibility
+//   - Timeout handling
 type polling struct {
 	Transport
 
-	// client is the HTTP client used for making requests
+	// client is the HTTP client used for making polling requests.
+	// It handles both GET (receiving) and POST (sending) operations.
 	client *request.HTTPClient
 
-	// _polling indicates whether a polling request is currently in progress
+	// _polling indicates whether a polling request is currently in progress.
+	// This is used to prevent multiple concurrent polling requests.
 	_polling atomic.Bool
 }
 
 // Name returns the identifier for the polling transport.
+// This identifier is used in transport selection and upgrade processes.
+//
+// Returns:
+//   - string: The transport name ("polling")
 func (p *polling) Name() string {
 	return transports.POLLING
 }
 
 // MakePolling creates a new polling transport instance with default settings.
 // This is the factory function for creating a new polling transport.
+//
+// Returns:
+//   - Polling: A new polling transport instance initialized with default settings
 func MakePolling() Polling {
 	s := &polling{
 		Transport: MakeTransport(),
@@ -46,13 +63,15 @@ func MakePolling() Polling {
 	return s
 }
 
-// NewPolling creates a new polling transport instance with the specified socket and options.
+// NewPolling creates a new polling transport instance with the specified
+// socket and options.
 //
 // Parameters:
 //   - socket: The parent socket instance
 //   - opts: The socket options configuration
 //
-// Returns: A new Polling transport instance
+// Returns:
+//   - Polling: A new polling transport instance configured with the specified options
 func NewPolling(socket Socket, opts SocketOptionsInterface) Polling {
 	s := MakePolling()
 
@@ -63,6 +82,10 @@ func NewPolling(socket Socket, opts SocketOptionsInterface) Polling {
 
 // Construct initializes the polling transport with the given socket and options.
 // This sets up the HTTP client with appropriate configuration for long-polling.
+//
+// Parameters:
+//   - socket: The parent socket instance
+//   - opts: The socket options configuration
 func (p *polling) Construct(socket Socket, opts SocketOptionsInterface) {
 	p.Transport.Construct(socket, opts)
 
@@ -132,6 +155,9 @@ func (p *polling) _poll() {
 
 // _onPacket handles incoming packets from the polling transport.
 // This method processes different packet types and updates the transport state accordingly.
+//
+// Parameters:
+//   - data: The packet to process
 func (p *polling) _onPacket(data *packet.Packet) {
 	// if its the first message we consider the transport open
 	if TransportStateOpening == p.ReadyState() && data.Type == packet.OPEN {
@@ -150,6 +176,9 @@ func (p *polling) _onPacket(data *packet.Packet) {
 
 // OnData processes incoming data from the polling transport.
 // This method decodes the payload and handles each packet in the payload.
+//
+// Parameters:
+//   - data: The raw data received from the server
 func (p *polling) OnData(data types.BufferInterface) {
 	client_polling_log.Debug("polling got data %#v", data)
 
@@ -174,7 +203,8 @@ func (p *polling) OnData(data types.BufferInterface) {
 }
 
 // DoClose gracefully closes the polling transport.
-// This method ensures that a close packet is sent to the server before closing the connection.
+// This method ensures that a close packet is sent to the server before closing
+// the connection.
 func (p *polling) DoClose() {
 	defer p.client.Close()
 
@@ -200,11 +230,20 @@ func (p *polling) DoClose() {
 
 // Write sends packets over the polling transport.
 // This method encodes the packets and sends them to the server.
+//
+// Parameters:
+//   - packets: Array of packets to be sent
 func (p *polling) Write(packets []*packet.Packet) {
 	p.SetWritable(false)
 
 	go p.write(packets)
 }
+
+// write performs the actual packet writing operation.
+// This method runs in a separate goroutine to handle asynchronous writes.
+//
+// Parameters:
+//   - packets: Array of packets to be sent
 func (p *polling) write(packets []*packet.Packet) {
 	data, _ := parser.Parserv4().EncodePayload(packets)
 	p.doWrite(data, func() {
@@ -214,7 +253,10 @@ func (p *polling) write(packets []*packet.Packet) {
 }
 
 // uri generates the URI for the polling transport connection.
-// This method constructs the appropriate URL with query parameters.
+// This method constructs the appropriate HTTP URL with query parameters.
+//
+// Returns:
+//   - *url.URL: The constructed HTTP URL
 func (p *polling) uri() *url.URL {
 	schema := "http"
 	if p.Opts().Secure() {
@@ -265,6 +307,10 @@ func (p *polling) doPoll() {
 
 // doWrite performs the actual HTTP request to write data to the server.
 // This method handles the HTTP POST request and error handling.
+//
+// Parameters:
+//   - data: The data to be written
+//   - fn: Callback function to be called after successful write
 func (p *polling) doWrite(data types.BufferInterface, fn func()) {
 	res, err := p._fetch(data)
 	if err != nil {
@@ -283,6 +329,13 @@ func (p *polling) doWrite(data types.BufferInterface, fn func()) {
 
 // _fetch performs the actual HTTP request with the given data.
 // This method handles the HTTP request configuration and execution.
+//
+// Parameters:
+//   - data: Optional data to be sent in the request body
+//
+// Returns:
+//   - *request.Response: The HTTP response
+//   - error: Any error that occurred during the request
 func (p *polling) _fetch(data io.Reader) (res *request.Response, err error) {
 	headers := http.Header{}
 	for k, vs := range p.Opts().ExtraHeaders() {

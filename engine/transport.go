@@ -13,7 +13,12 @@ import (
 
 // Transport represents the base transport implementation that provides common functionality
 // for all transport types (WebSocket, WebTransport, Polling, etc.).
-// It handles the basic lifecycle of a transport connection and provides event-based communication.
+// It implements the basic lifecycle of a transport connection and provides event-based
+// communication capabilities.
+//
+// Transport instances handle the low-level details of establishing and maintaining
+// connections with the server, including connection state management, packet
+// encoding/decoding, and error handling.
 type transport struct {
 	types.EventEmitter
 
@@ -48,49 +53,75 @@ type transport struct {
 
 // Prototype sets the prototype interface for method rewriting.
 // This is used to implement proper interface inheritance in Go.
+//
+// Parameters:
+//   - _proto_: The prototype interface to be used for method rewriting
 func (s *transport) Prototype(_proto_ Transport) {
 	s._proto_ = _proto_
 }
 
 // Proto returns the prototype interface instance.
+//
+// Returns:
+//   - Transport: The current prototype interface implementation
 func (s *transport) Proto() Transport {
 	return s._proto_
 }
 
 // Query returns the URL query parameters for the transport.
+//
+// Returns:
+//   - url.Values: The current query parameters
 func (t *transport) Query() url.Values {
 	return t.query
 }
 
 // SetWritable updates the writable state of the transport.
 // This is used to control whether the transport can send data.
+//
+// Parameters:
+//   - writable: The new writable state to set
 func (t *transport) SetWritable(writable bool) {
 	t.writable.Store(writable)
 }
 
 // Writable returns whether the transport is currently able to send data.
+//
+// Returns:
+//   - bool: true if the transport can send data, false otherwise
 func (t *transport) Writable() bool {
 	return t.writable.Load()
 }
 
 // Opts returns the socket options configuration for this transport.
+//
+// Returns:
+//   - SocketOptionsInterface: The current socket options configuration
 func (t *transport) Opts() SocketOptionsInterface {
 	return t.opts
 }
 
 // SupportsBinary returns whether the transport supports binary data transmission.
+//
+// Returns:
+//   - bool: true if binary data is supported, false if base64 encoding is required
 func (t *transport) SupportsBinary() bool {
 	return t.supportsBinary
 }
 
 // SetReadyState updates the current state of the transport connection.
 // This is used to track the lifecycle of the transport (opening, open, closed).
+//
+// Parameters:
+//   - readyState: The new state to set for the transport
 func (t *transport) SetReadyState(readyState TransportState) {
 	t.readyState.Store(&readyState)
 }
 
 // ReadyState returns the current state of the transport connection.
-// Returns an empty string if no state is set.
+//
+// Returns:
+//   - TransportState: The current state of the transport, or empty string if no state is set
 func (t *transport) ReadyState() TransportState {
 	if readyState := t.readyState.Load(); readyState != nil {
 		return *readyState
@@ -99,12 +130,18 @@ func (t *transport) ReadyState() TransportState {
 }
 
 // Socket returns the parent socket instance that owns this transport.
+//
+// Returns:
+//   - Socket: The parent socket instance
 func (t *transport) Socket() Socket {
 	return t.socket
 }
 
 // MakeTransport creates a new transport instance with default settings.
 // This is the factory function for creating a new transport.
+//
+// Returns:
+//   - Transport: A new transport instance initialized with default settings
 func MakeTransport() Transport {
 	s := &transport{
 		EventEmitter: types.NewEventEmitter(),
@@ -123,7 +160,8 @@ func MakeTransport() Transport {
 //   - socket: The parent socket instance
 //   - opts: The socket options configuration
 //
-// Returns: A new Transport instance
+// Returns:
+//   - Transport: A new transport instance configured with the specified options
 func NewTransport(socket Socket, opts SocketOptionsInterface) Transport {
 	s := MakeTransport()
 
@@ -134,6 +172,10 @@ func NewTransport(socket Socket, opts SocketOptionsInterface) Transport {
 
 // Construct initializes the transport with the given socket and options.
 // This is an internal method used by NewTransport to set up the connection.
+//
+// Parameters:
+//   - socket: The parent socket instance
+//   - opts: The socket options configuration
 func (t *transport) Construct(socket Socket, opts SocketOptionsInterface) {
 	t.opts = opts
 	t.query = opts.Query()
@@ -143,6 +185,14 @@ func (t *transport) Construct(socket Socket, opts SocketOptionsInterface) {
 
 // OnError emits an error event with the specified reason and description.
 // This is used to handle transport-level errors.
+//
+// Parameters:
+//   - reason: A string describing the error
+//   - description: The underlying error that caused this transport error
+//   - context: Additional context information about the error
+//
+// Returns:
+//   - Transport: The transport instance for method chaining
 func (t *transport) OnError(reason string, description error, context context.Context) Transport {
 	t.Emit("error", NewTransportError(reason, description, context).Err())
 	return t
@@ -150,6 +200,9 @@ func (t *transport) OnError(reason string, description error, context context.Co
 
 // Open initiates the transport connection.
 // This sets the ready state to opening and calls the transport-specific open implementation.
+//
+// Returns:
+//   - Transport: The transport instance for method chaining
 func (t *transport) Open() Transport {
 	t.SetReadyState(TransportStateOpening)
 	t._proto_.DoOpen()
@@ -158,7 +211,11 @@ func (t *transport) Open() Transport {
 }
 
 // Close terminates the transport connection.
-// This is called when the transport needs to be closed, either due to an error or normal shutdown.
+// This is called when the transport needs to be closed, either due to an error
+// or normal shutdown.
+//
+// Returns:
+//   - Transport: The transport instance for method chaining
 func (t *transport) Close() Transport {
 	if readyState := t.ReadyState(); TransportStateOpening == readyState || TransportStateOpen == readyState {
 		t._proto_.DoClose()
@@ -170,6 +227,9 @@ func (t *transport) Close() Transport {
 
 // Send transmits multiple packets through the transport.
 // This is only possible when the transport is in the open state.
+//
+// Parameters:
+//   - packets: An array of packets to be sent
 func (t *transport) Send(packets []*packet.Packet) {
 	if TransportStateOpen == t.ReadyState() {
 		t._proto_.Write(packets)
@@ -189,6 +249,9 @@ func (t *transport) OnOpen() {
 
 // OnData processes incoming data from the transport.
 // This decodes the data into packets and forwards them to OnPacket.
+//
+// Parameters:
+//   - data: The raw data received from the transport
 func (t *transport) OnData(data types.BufferInterface) {
 	p, _ := parser.Parserv4().DecodePacket(data)
 	t.OnPacket(p)
@@ -196,12 +259,18 @@ func (t *transport) OnData(data types.BufferInterface) {
 
 // OnPacket handles decoded packets from the transport.
 // This emits a packet event with the decoded data.
+//
+// Parameters:
+//   - data: The decoded packet
 func (t *transport) OnPacket(data *packet.Packet) {
 	t.Emit("packet", data)
 }
 
 // OnClose is called when the transport connection is closed.
 // This updates the ready state and emits a close event with any error details.
+//
+// Parameters:
+//   - details: Optional error details about why the connection was closed
 func (t *transport) OnClose(details error) {
 	t.SetReadyState(TransportStateClosed)
 	t.Emit("close", details)
@@ -209,14 +278,27 @@ func (t *transport) OnClose(details error) {
 
 // Name returns the name of the transport.
 // This is implemented by specific transport types.
+//
+// Returns:
+//   - string: The transport name
 func (t *transport) Name() string { return "" }
 
 // Pause temporarily suspends the transport to prevent packet loss during upgrades.
 // This is implemented by specific transport types.
+//
+// Parameters:
+//   - func(): A callback function to be called when the transport is paused
 func (t *transport) Pause(func()) {}
 
 // CreateUri constructs a URL for the transport connection.
 // This combines the schema, hostname, port, and path with any query parameters.
+//
+// Parameters:
+//   - schema: The URL schema (e.g., "ws", "http")
+//   - query: Optional query parameters to include in the URL
+//
+// Returns:
+//   - *url.URL: The constructed URL for the transport connection
 func (t *transport) CreateUri(schema string, query url.Values) *url.URL {
 	uri := &url.URL{
 		Scheme: schema,
@@ -231,6 +313,9 @@ func (t *transport) CreateUri(schema string, query url.Values) *url.URL {
 
 // _hostname returns the formatted hostname for the transport.
 // This handles IPv6 addresses by wrapping them in square brackets.
+//
+// Returns:
+//   - string: The formatted hostname
 func (t *transport) _hostname() string {
 	hostname := t.opts.Hostname()
 	if strings.Contains(hostname, ":") {
@@ -241,6 +326,9 @@ func (t *transport) _hostname() string {
 
 // _port returns the formatted port string for the transport.
 // This only includes the port if it's not the default port for the protocol.
+//
+// Returns:
+//   - string: The formatted port string, including the colon if needed
 func (t *transport) _port() string {
 	port := t.opts.Port()
 	if port != "" && ((t.opts.Secure() && port != "443") || (!t.opts.Secure() && port != "80")) {
@@ -259,4 +347,7 @@ func (t *transport) DoClose() {}
 
 // Write is a placeholder method that should be implemented by specific transport types.
 // It handles the actual writing of packets to the transport.
+//
+// Parameters:
+//   - []*packet.Packet: The packets to be written to the transport
 func (t *transport) Write([]*packet.Packet) {}
