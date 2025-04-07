@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zishang520/engine.io-go-parser/parser"
 	"github.com/zishang520/engine.io/v2/events"
 	"github.com/zishang520/engine.io/v2/log"
 	"github.com/zishang520/engine.io/v2/types"
@@ -48,6 +49,8 @@ const (
 	// This can be used to handle reconnection scenarios.
 	EventOnline types.EventName = "online"
 )
+
+const Protocol = parser.Protocol
 
 // BASE64_OVERHEAD represents the size overhead when encoding binary data as base64.
 // Base64 encoding increases the size of binary data by approximately 33%.
