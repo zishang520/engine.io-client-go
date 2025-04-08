@@ -8,7 +8,7 @@ require (
 	github.com/klauspost/compress v1.18.0
 	github.com/quic-go/quic-go v0.50.1
 	github.com/zishang520/engine.io-go-parser v1.3.2
-	github.com/zishang520/engine.io/v2 v2.4.10
+	github.com/zishang520/engine.io/v2 v2.4.12
 	github.com/zishang520/webtransport-go v0.8.6
 	resty.dev/v3 v3.0.0-beta.2
 )
