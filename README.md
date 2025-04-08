@@ -7,23 +7,7 @@ A robust Go client implementation for [Engine.IO](http://github.com/zishang520/e
 
 ## Features
 
-- **Multiple Transport Support**
-  - WebSocket for full-duplex communication
-  - HTTP long-polling for maximum compatibility
-  - WebTransport for modern browsers
-  - Automatic transport upgrade mechanism
-
-- **Reliability & Performance**
-  - Automatic reconnection with configurable retry logic
-  - Binary data support for efficient data transfer
-  - Built-in heartbeat mechanism
-  - Connection state management
-
-- **Developer-Friendly**
-  - Event-driven architecture
-  - Comprehensive error handling
-  - Configurable logging
-  - Extensive customization options
+- Haven't written it yet.
 
 ## Installation
 
@@ -106,49 +90,6 @@ func main() {
         // Connection established
     })
 }
-```
-
-## API Reference
-
-### Socket Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| Transports | *types.Set[TransportCtor] | types.NewSet(transports.Polling, transports.WebSocket, transports.WebTransport) | Available transport methods |
-| Path | string | "/engine.io" | Connection endpoint path |
-| Query | url.Values | nil | URL query parameters |
-| Upgrade | bool | true | Enable transport upgrade |
-| RememberUpgrade | bool | false | Remember successful WebSocket upgrades |
-| RequestTimeout | time.Duration | 0 | HTTP request timeout |
-| ExtraHeaders | http.Header | nil | Additional HTTP headers |
-
-### Events
-
-| Event | Description |
-|-------|-------------|
-| open | Fired upon successful connection |
-| message | Fired when data is received |
-| close | Fired upon disconnection |
-| error | Fired when an error occurs |
-| ping | Fired when a ping packet is received |
-| pong | Fired when a pong packet is sent |
-| upgrade | Fired upon successful transport upgrade |
-| upgradeError | Fired when transport upgrade fails |
-
-### Socket Methods
-
-```go
-// Send data to the server
-Send(data io.Reader, options *packet.Options, callback func()) engine.SocketWithoutUpgrade
-
-// Close the connection
-Close() engine.SocketWithoutUpgrade
-
-// Get current state
-ReadyState() engine.SocketState
-
-// Add event listener
-On(event string, fn events.Listener)
 ```
 
 ## Development
