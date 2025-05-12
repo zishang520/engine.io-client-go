@@ -10,7 +10,7 @@ require (
 	github.com/zishang520/engine.io-go-parser v1.3.2
 	github.com/zishang520/engine.io/v2 v2.4.13
 	github.com/zishang520/webtransport-go v0.8.7
-	resty.dev/v3 v3.0.0-beta.2
+	resty.dev/v3 v3.0.0-beta.3
 )
 
 require (
