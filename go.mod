@@ -6,7 +6,7 @@ require (
 	github.com/andybalholm/brotli v1.1.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.0
-	github.com/quic-go/quic-go v0.51.0
+	github.com/quic-go/quic-go v0.52.0
 	github.com/zishang520/engine.io-go-parser v1.3.2
 	github.com/zishang520/engine.io/v2 v2.4.13
 	github.com/zishang520/webtransport-go v0.8.7
