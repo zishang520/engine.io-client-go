@@ -3,7 +3,7 @@ module github.com/zishang520/engine.io-client-go
 go 1.24.1
 
 require (
-	github.com/andybalholm/brotli v1.1.1
+	github.com/andybalholm/brotli v1.2.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.0
 	github.com/quic-go/quic-go v0.52.0
