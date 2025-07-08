@@ -268,9 +268,7 @@ func (s *socketWithoutUpgrade) Construct(uri string, opts SocketOptionsInterface
 	s.opts.SetTimestampParam("t")
 	s.opts.SetRememberUpgrade(false)
 	s.opts.SetAddTrailingSlash(true)
-	s.opts.SetPerMessageDeflate(&types.PerMessageDeflate{
-		Threshold: 1024,
-	})
+	
 	s.opts.SetTransportOptions(map[string]SocketOptionsInterface{})
 	s.opts.SetCloseOnBeforeunload(false)
 
