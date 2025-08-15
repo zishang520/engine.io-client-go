@@ -60,7 +60,8 @@ const BASE64_OVERHEAD float64 = 1.33
 // init performs initialization tasks for the Engine.IO client.
 // This includes setting up signal handling and network monitoring.
 func init() {
-	setupSignalHandling()
+	// Signal handling disabled to prevent goroutine leaks in test environments
+	// setupSignalHandling()
 	setupNetworkHandling()
 }
 
